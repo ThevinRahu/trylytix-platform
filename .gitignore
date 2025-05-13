@@ -1,10 +1,21 @@
-# .gitignore
+# Python (Django)
 venv/
 __pycache__/
-*.pyc
+*.py[cod]
+*.sqlite3
+*.log
 db.sqlite3
-node_modules/
 .env
+
+# Node.js (React)
+node_modules/
 build/
 dist/
-*.log
+amplify/
+
+# Editor/OS/System
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
