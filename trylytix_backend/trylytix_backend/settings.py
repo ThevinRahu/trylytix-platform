@@ -78,10 +78,15 @@ WSGI_APPLICATION = 'trylytix_backend.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'trylytix',
+        'USER': 'admin_thevin',
+        'PASSWORD': 'Th3vIn_DP',
+        'HOST': 'trylytix-db.c5a2k8mwi8ks.ap-southeast-2.rds.amazonaws.com',
+        'PORT': '5432',
     }
 }
+
 
 
 # Password validation
