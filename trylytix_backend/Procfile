@@ -1,1 +1,1 @@
-web: gunicorn trylytix_backend.wsgi:application --timeout 120 --bind 0.0.0.0:${PORT:-8000}
+web: gunicorn trylytix_backend.wsgi:application --timeout 180 --bind 0.0.0.0:${PORT:-8000}
