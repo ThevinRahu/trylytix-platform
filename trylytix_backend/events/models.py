@@ -4,8 +4,6 @@ from teams.models import Player, Team
 
 class Event(models.Model):
     EVENT_TYPES = [
-        ("pass", "Pass"),
-        ("tackle", "Tackle"),
         ("try", "Try"),
         ("kick", "Kick"),
         ("penalty", "Penalty"),
@@ -63,8 +61,9 @@ class Event(models.Model):
 
     match = models.ForeignKey(Match, on_delete=models.CASCADE, related_name='events')
     player = models.ForeignKey(Player, on_delete=models.SET_NULL, null=True, blank=True)
-    opponent_team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True)
+    team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True)
     event_type = models.CharField(max_length=50, choices=EVENT_TYPES)
+    is_opponent_event = models.BooleanField(default=False)
     timestamp = models.TimeField(null=True, blank=True)
     x_coord = models.FloatField(null=True, blank=True)
     y_coord = models.FloatField(null=True, blank=True)

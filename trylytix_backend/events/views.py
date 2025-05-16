@@ -30,7 +30,10 @@ class EventViewSet(viewsets.ModelViewSet):
                 x_coord=row.get('x'),
                 y_coord=row.get('y'),
                 location_zone=row.get('zone', ''),
-                description=row.get('description', '')
+                description=row.get('description', ''),
+                player_id=row.get('player_id', ''),
+                team_id=row.get('team_id', ''),
+                is_opponent_event=row.get('is_opponent_event', 'false').lower() == 'true'
             )
             events_created += 1
 
