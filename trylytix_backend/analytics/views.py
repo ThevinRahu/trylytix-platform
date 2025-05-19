@@ -5,6 +5,7 @@ from events.models import Event
 from teams.models import Player, Team
 from matches.models import Match
 from analytics.ml_model_prediction import predict_match_outcome
+from analytics.player_analysis import deep_rf_analysis
 
 @api_view(['GET'])
 def player_stats(request, player_id):
@@ -241,4 +242,10 @@ def predict_outcome(request):
 
     prediction = predict_match_outcome(request.data)
     return Response(prediction)
+
+@api_view(['GET'])
+def player_ml_profile(request, player_id):
+    data = deep_rf_analysis(player_id)
+    return Response(data)
+
 

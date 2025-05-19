@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import export_match_events, match_heatmap, player_advanced_stats, player_stats, predict_outcome, team_stats, team_tactical_suggestions, team_trend_stats
+from .views import export_match_events, match_heatmap, player_advanced_stats, player_stats, predict_outcome, team_stats, team_tactical_suggestions, team_trend_stats, player_ml_profile
 from .views import match_summary
 
 urlpatterns = [
@@ -12,4 +12,5 @@ urlpatterns = [
     path('teams/<int:team_id>/tactical-suggestions/', team_tactical_suggestions),
     path('matches/<int:match_id>/events-export/', export_match_events),
     path('predict-outcome/', predict_outcome),
+    path('players/<int:player_id>/deep-analysis/', player_ml_profile),
 ]
