@@ -1,70 +1,15 @@
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler, LabelEncoder
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_val_score
 import joblib
 from rugbypy.player import fetch_player_stats
 
+# --- CONFIGURATION ---
 
-def aggregate_player_stats(stats_df):
-    numeric_cols = [
-        "rucks_won", "runs", "tackles", "total_free_kicks_conceded", "total_lineouts",
-        "tries", "try_assists", "turnover_knock_on", "turnovers_conceded", "yellow_cards"
-    ]
-    agg = stats_df[numeric_cols].fillna(0).astype(float).sum()
-    return {col: int(agg[col]) for col in numeric_cols}
-
-def extract_features(player_stats):
-    return {
-        "rucks_won": int(player_stats.get("rucks_won", 0)),
-        "runs": int(player_stats.get("runs", 0)),
-        "tackles": int(player_stats.get("tackles", 0)),
-        "total_free_kicks_conceded": int(player_stats.get("total_free_kicks_conceded", 0)),
-        "total_lineouts": int(player_stats.get("total_lineouts", 0)),
-        "tries": int(player_stats.get("tries", 0)),
-        "try_assists": int(player_stats.get("try_assists", 0)),
-        "turnover_knock_on": int(player_stats.get("turnover_knock_on", 0)),
-        "turnovers_conceded": int(player_stats.get("turnovers_conceded", 0)),
-        "yellow_cards": int(player_stats.get("yellow_cards", 0)),
-    }
-
-def generate_label(features):
-    def to_scalar(x):
-        # Handles Series, numpy values, etc.
-        if isinstance(x, (pd.Series, np.ndarray)):
-            return x.item() if x.size == 1 else x[0]  # or raise an error
-        return x
-
-    tackles = to_scalar(features["tackles"])
-    rucks_won = to_scalar(features["rucks_won"])
-    tries = to_scalar(features["tries"])
-    try_assists = to_scalar(features["try_assists"])
-    yellow_cards = to_scalar(features["yellow_cards"])
-    turnover_knock_on = to_scalar(features["turnover_knock_on"])
-    turnovers_conceded = to_scalar(features["turnovers_conceded"])
-
-    insights = []
-    if tackles > 10:
-        insights.append("Very strong defender.")
-    if rucks_won > 5:
-        insights.append("Excellent at contesting rucks.")
-    if tries > 1:
-        insights.append("Dangerous try-scorer.")
-    if try_assists > 1:
-        insights.append("Playmaking skills evident.")
-    if yellow_cards > 0:
-        insights.append("Disciplinary issues (yellow cards).")
-    if turnover_knock_on > 2:
-        insights.append("Needs to reduce handling errors (knock-ons).")
-    if turnovers_conceded > 2:
-        insights.append("High turnover rate.")
-    if not insights:
-        insights.append("Well-rounded with no standout strengths or weaknesses.")
-    return " ".join(insights)
-
-# 1. Sample dataset — You can build this from actual DB later
-player_ids = ['238367', '302117', '301864', '300726', '300670', '300616',
+PLAYER_IDS = ['238367', '302117', '301864', '300726', '300670', '300616',
        '298707', '298543', '297076', '296207', '295126', '294359',
        '293879', '292160', '292154', '291379', '288451', '285669',
        '245267', '243185', '237657', '177474', '176339', '304191',
@@ -89,60 +34,165 @@ player_ids = ['238367', '302117', '301864', '300726', '300670', '300616',
        '285791', '255181', '176112', '159211', '154534', '296957',
        '302842', '301480', '298777', '104729', '292227', '126149',
        '105490', '292164', '255963', '296848', '246117', '291693',
-       '107693']  # Add as needed
-data = []
+       '107693'] 
 
-for pid in player_ids:
+ALL_FIELDS = [
+    'weight', 'height', 'position', 'clean_breaks', 'conversion_goals',
+    'defenders_beaten', 'drop_goals_converted', 'kick_percent_success', 'kicks',
+    'kicks_from_hand', 'lineouts_won', 'lineout_won_steal', 'mauls_won',
+    'meters_run', 'missed_tackles', 'offload', 'passes', 'penalties_conceded',
+    'penalty_goals', 'points', 'red_cards', 'rucks_won', 'runs', 'tackles',
+    'total_free_kicks_conceded', 'total_lineouts', 'tries', 'try_assists',
+    'turnover_knock_on', 'turnovers_conceded', 'yellow_cards'
+]
+COMPOSITE_FEATURES = [
+    'defensive_impact', 'attacking_threat', 'discipline', 'playmaking'
+]
+
+# --- FEATURE EXTRACTION ---
+
+def extract_all_features(player_stats):
+    if isinstance(player_stats, pd.Series):
+        player_stats = player_stats.to_dict()
+    return {field: player_stats.get(field, 0) for field in ALL_FIELDS}
+
+# --- ADVANCED LABELING LOGIC ---
+
+def get_label_columns(features):
+    """Return a dictionary of rugby insight labels based on stat patterns."""
+    # Defensive Impact: tackles, rucks won, turnovers
+    defensive = int(features.get('tackles', 0)) + int(features.get('rucks_won', 0)) + int(features.get('lineout_won_steal', 0))
+    # Attacking Threat: tries, meters run, clean breaks, defenders beaten
+    attacking = int(features.get('tries', 0)) + int(features.get('meters_run', 0)) // 10 + int(features.get('clean_breaks', 0)) + int(features.get('defenders_beaten', 0))
+    # Discipline: negative impact of cards and penalties
+    discipline = -(int(features.get('yellow_cards', 0)) * 2 + int(features.get('red_cards', 0)) * 5 + int(features.get('penalties_conceded', 0)))
+    # Playmaking: try assists, offloads, passes
+    playmaking = int(features.get('try_assists', 0)) * 2 + int(features.get('offload', 0)) + int(features.get('passes', 0)) // 10
+
+    return {
+        'defensive_impact': defensive,
+        'attacking_threat': attacking,
+        'discipline': discipline,
+        'playmaking': playmaking
+    }
+
+def make_human_readable_labels(row):
+    """Create a readable label string from composite features."""
+    insights = []
+    if row['defensive_impact'] > 20:
+        insights.append("Elite Defender")
+    elif row['defensive_impact'] > 10:
+        insights.append("Strong Defender")
+    if row['attacking_threat'] > 15:
+        insights.append("Dangerous Attacker")
+    elif row['attacking_threat'] > 7:
+        insights.append("Solid Attacker")
+    if row['playmaking'] > 10:
+        insights.append("Creative Playmaker")
+    if row['discipline'] < -5:
+        insights.append("Disciplinary Issues")
+    elif row['discipline'] > -2:
+        insights.append("Disciplined Player")
+    if not insights:
+        insights.append("Well-rounded")
+    return ", ".join(insights)
+
+data = []
+for pid in PLAYER_IDS:
     stats = fetch_player_stats(player_id=pid)
-    print(f"DEBUG: stats for player {pid}: type={type(stats)}\n{stats}\n")
     if isinstance(stats, pd.DataFrame):
-        features = aggregate_player_stats(stats)
-    elif isinstance(stats, pd.Series):
-        features = extract_features(stats.to_dict())
-    elif isinstance(stats, dict):
-        features = extract_features(stats)
+        agg = {}
+        for field in ALL_FIELDS:
+            if field in stats:
+                try:
+                    agg[field] = stats[field].fillna(0).astype(float).sum()
+                except Exception:
+                    agg[field] = stats[field].fillna("").astype(str).iloc[0]
+            else:
+                agg[field] = 0
+        features = extract_all_features(agg)
+    elif isinstance(stats, (pd.Series, dict)):
+        features = extract_all_features(stats)
     else:
         raise ValueError(f"Unknown stats type for player {pid}: {type(stats)}")
-    label = generate_label(features)
-    row = [
-        features["rucks_won"],
-        features["runs"],
-        features["tackles"],
-        features["total_free_kicks_conceded"],
-        features["total_lineouts"],
-        features["tries"],
-        features["try_assists"],
-        features["turnover_knock_on"],
-        features["turnovers_conceded"],
-        features["yellow_cards"],
-        label
-    ]
+    label_cols = get_label_columns(features)
+    row = [features[field] for field in ALL_FIELDS] + [label_cols[k] for k in COMPOSITE_FEATURES]
     data.append(row)
 
-df = pd.DataFrame(data, columns=[
-    'rucks_won', 'runs', 'tackles', 'total_free_kicks_conceded',
-    'total_lineouts', 'tries', 'try_assists', 'turnover_knock_on',
-    'turnovers_conceded', 'yellow_cards', 'label'
-])
+df = pd.DataFrame(data, columns=ALL_FIELDS + COMPOSITE_FEATURES)
 
-X = df.drop('label', axis=1)
+# --- CATEGORICAL ENCODING ---
+
+if 'position' in df:
+    df['position'] = LabelEncoder().fit_transform(df['position'].astype(str))
+
+# --- HUMAN READABLE LABELS ---
+
+df['label'] = df.apply(make_human_readable_labels, axis=1)
+
+# --- ML DATA PREP ---
+
+X = df[ALL_FIELDS + COMPOSITE_FEATURES]
 y = df['label']
 
-# Encode textual labels
-le = LabelEncoder()
-y_encoded = le.fit_transform(y)
+# --- SCALE NUMERIC FEATURES ---
 
-# Normalize
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
-# Train model
-model = RandomForestClassifier(n_estimators=100, random_state=42)
-model.fit(X_scaled, y_encoded)
+# --- CLUSTERING FOR ARCHETYPES ---
 
-# Save model, scaler, and label encoder
-joblib.dump(model, 'player_profile_rf_model.pkl')
-joblib.dump(scaler, 'player_profile_scaler.pkl')
-joblib.dump(le, 'player_profile_label_encoder.pkl')
+n_clusters = 4
+kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+df['archetype'] = kmeans.fit_predict(df[COMPOSITE_FEATURES])
 
-print("✅ Model, scaler, and label encoder saved.")
+# --- ENCODE LABELS ---
+
+le_label = LabelEncoder()
+y_encoded = le_label.fit_transform(y)
+
+# --- MODELS ---
+
+# 1. Random Forest for label prediction (multi-class)
+rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
+rf_model.fit(X_scaled, y_encoded)
+
+# 2. Gradient Boosting as alternative
+gb_model = GradientBoostingClassifier(n_estimators=100, random_state=42)
+gb_model.fit(X_scaled, y_encoded)
+
+# 3. Archetype classifier (predict cluster/archetype)
+archetype_model = RandomForestClassifier(n_estimators=100, random_state=42)
+archetype_model.fit(X_scaled, df['archetype'])
+
+# --- EVALUATE (OPTIONAL) ---
+
+print("RF Accuracy (cross-val):", cross_val_score(rf_model, X_scaled, y_encoded, cv=5).mean())
+print("GB Accuracy (cross-val):", cross_val_score(gb_model, X_scaled, y_encoded, cv=5).mean())
+print("Archetype Clusters:", df['archetype'].value_counts())
+
+# --- SAVE ARTIFACTS ---
+
+joblib.dump(rf_model, 'rugby_rf_model.pkl')
+joblib.dump(gb_model, 'rugby_gb_model.pkl')
+joblib.dump(archetype_model, 'rugby_archetype_rf_model.pkl')
+joblib.dump(scaler, 'rugby_scaler.pkl')
+joblib.dump(le_label, 'rugby_label_encoder.pkl')
+joblib.dump(kmeans, 'rugby_kmeans_archetypes.pkl')
+df.to_csv('rugby_players_full_dataset.csv', index=False)
+
+print("✅ All models, encoders, and dataset saved.")
+
+# --- SAMPLE USAGE ---
+
+# To predict labels/archetypes:
+# features = ...  # new player stats dict
+# x = pd.DataFrame([extract_all_features(features)])[ALL_FIELDS + COMPOSITE_FEATURES]
+# x['position'] = LabelEncoder().fit_transform(x['position'].astype(str))
+# x_scaled = scaler.transform(x)
+# label_pred = le_label.inverse_transform(rf_model.predict(x_scaled))
+# archetype_pred = kmeans.predict(x[COMPOSITE_FEATURES])
+# 1. Team predictions - get average of all events of both teams and use model to predict
+# 2. Player stats
+# 3. Attacking patterns strenghts/weaknesses
+# 4. Defensive patterns strengths/weaknesses
