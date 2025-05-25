@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'matches',
     'projects',
     'events',
+    'analytics',
 ]
 
 MIDDLEWARE = [

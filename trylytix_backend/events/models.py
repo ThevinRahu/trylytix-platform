@@ -21,14 +21,11 @@ class Event(models.Model):
         ("scrum", "Scrum"),
         ("scrum_win", "Scrum Win"),
         ("scrum_loss", "Scrum Loss"),
-        ("kick", "Kick"),
         ("kick_return", "Kick Return"),
         ("box_kick", "Box Kick"),
         ("grubber_kick", "Grubber Kick"),
-        ("penalty", "Penalty"),
         ("free_kick", "Free Kick"),
         ("drop_goal", "Drop Goal"),
-        ("try", "Try"),
         ("conversion", "Conversion"),
         ("conversion_missed", "Conversion Missed"),
         ("penalty_goal", "Penalty Goal"),
@@ -64,11 +61,15 @@ class Event(models.Model):
     team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True)
     event_type = models.CharField(max_length=50, choices=EVENT_TYPES)
     is_opponent_event = models.BooleanField(default=False)
-    timestamp = models.TimeField(null=True, blank=True)
-    x_coord = models.FloatField(null=True, blank=True)
-    y_coord = models.FloatField(null=True, blank=True)
-    location_zone = models.CharField(max_length=50, blank=True)
+    timestamp = models.DateTimeField(null=True, blank=True)
+    x_coord = models.FloatField(null=True, blank=True, help_text="X coordinate, e.g., 0-100 along field length")
+    y_coord = models.FloatField(null=True, blank=True, help_text="Y coordinate, e.g., 0-100 along field width")
+    location_zone = models.CharField(max_length=50, blank=True, help_text="Named zone, e.g., '22', 'left wing', etc.")
+    phase = models.PositiveIntegerField(null=True, blank=True, help_text="Phase of play leading up to event")
     description = models.TextField(blank=True)
 
     def __str__(self):
         return f"{self.event_type} by {self.player} at {self.timestamp}"
+
+    class Meta:
+        ordering = ['timestamp']

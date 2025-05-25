@@ -14,7 +14,7 @@ class EventViewSet(viewsets.ModelViewSet):
     def upload_csv(self, request):
         file = request.FILES.get('file')
         match_id = request.data.get('match_id')
-
+        print(f"Received file: {file}, match_id: {match_id}")
         if not file or not match_id:
             return Response({'error': 'file and match_id required'}, status=400)
 
@@ -33,6 +33,7 @@ class EventViewSet(viewsets.ModelViewSet):
                 description=row.get('description', ''),
                 player_id=row.get('player_id', ''),
                 team_id=row.get('team_id', ''),
+                phase=row.get('phase', ''),
                 is_opponent_event=row.get('is_opponent_event', 'false').lower() == 'true'
             )
             events_created += 1
