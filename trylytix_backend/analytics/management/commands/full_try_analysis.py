@@ -15,6 +15,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Embedding, LSTM, Dense, Masking
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.utils import to_categorical
+import joblib
 
 EVENT_TYPE_LIST = [
     "try", "kick", "penalty", "kickoff", "pass", "carry", "run", "tackle", "missed_tackle", "ruck",
@@ -137,6 +138,7 @@ class Command(BaseCommand):
             clf = RandomForestClassifier(n_estimators=100, random_state=42)
             clf.fit(X_train, y_train)
             y_pred = clf.predict(X_test)
+            joblib.dump(clf, 'try_pattern_model.pkl')
             print("\nClassic ML (RandomForest):")
             print("Accuracy:", accuracy_score(y_test, y_pred))
             print(classification_report(y_test, y_pred))
