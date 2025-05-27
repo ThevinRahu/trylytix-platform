@@ -68,7 +68,6 @@ class Command(BaseCommand):
                 'description': e.description,
             })
         df = pd.DataFrame(data)
-        print(df.head())
         if df.empty:
             print("No events found for the given filter.")
             return
