@@ -192,7 +192,7 @@ const RugbyEventTracker: React.FC = () => {
       <AppBar position="static">
         <Toolbar>
           <SportsRugby sx={{ mr: 2 }} />
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>Rugby Match Event Tracker</Typography>
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>Rugby Match Events Tracker</Typography>
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             <Typography variant="h6">{half} {formatTime(matchTime)}</Typography>
             <ToggleButtonGroup exclusive>
