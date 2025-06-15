@@ -10,7 +10,6 @@ import Papa from "papaparse";
 import axios from "axios";
 
 // --- Types
-type Team = { id: number; name: string };
 type Player = { id: number; full_name: string; jersey_number: number; team: number };
 type RugbyEvent = {
   id?: number;
@@ -44,7 +43,6 @@ const RugbyEventTracker: React.FC = () => {
   // State
   const [homePlayers, setHomePlayers] = useState<Player[]>([]);
   const [awayPlayers, setAwayPlayers] = useState<Player[]>([]);
-  const [teams, setTeams] = useState<Team[]>([]);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [selectedCoords, setSelectedCoords] = useState<{ x: number; y: number; zone: string } | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
