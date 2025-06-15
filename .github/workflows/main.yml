@@ -1,0 +1,40 @@
+name: Backend CI/CD
+
+on:
+  push:
+    paths:
+      - "trylytix_backend/**"
+    branches: ["main"]
+
+env:
+  ENV_LABEL: ${{ github.ref == 'refs/heads/main' && 'prod' }}
+  S3_BUCKET: trylytix-backend-deployments
+
+defaults:
+  run:
+    working-directory: ./trylytix_backend
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  package-backend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Zip Backend
+        run: |
+          zip -r backend-${{ env.ENV_LABEL }}.zip . -x "venv/*" "*.pyc" "__pycache__/*"
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: arn:aws:iam::407215534303:role/GitHubActionAssumeRole
+          aws-region: ap-southeast-2
+
+      - name: Upload to S3
+        run: aws s3 cp backend-${{ env.ENV_LABEL }}.zip s3://${{ env.S3_BUCKET }}/backend-${{ env.ENV_LABEL }}.zip
